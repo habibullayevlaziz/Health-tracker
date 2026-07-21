@@ -10,8 +10,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Yurish">
-<link rel="apple-touch-icon" href="icons/icon-192.png">
-<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" href="icon-192.png">
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -172,6 +172,30 @@
   nav.tabs svg{ width:22px; height:22px; }
 
   ::selection{ background:var(--run); color:#06231A; }
+
+  /* ---------- Install banner ---------- */
+  .install-banner{
+    position:fixed; top:0; left:0; right:0; z-index:60;
+    background:linear-gradient(90deg, #12181F, #1A222B);
+    border-bottom:1px solid #263140;
+    padding:10px 14px; padding-top:calc(10px + env(safe-area-inset-top));
+    display:flex; align-items:center; gap:10px;
+    transform:translateY(-110%); transition:transform .3s ease;
+    max-width:520px; margin:0 auto;
+  }
+  .install-banner.show{ transform:translateY(0); }
+  .install-banner img{ width:34px; height:34px; border-radius:9px; flex-shrink:0; }
+  .install-banner .txt{ flex:1; min-width:0; }
+  .install-banner .txt .t1{ font-size:13px; font-weight:800; color:var(--text); }
+  .install-banner .txt .t2{ font-size:11px; color:var(--text-dim); }
+  .install-banner button.install-btn{
+    background:var(--run); color:#06231A; border:none; border-radius:10px;
+    padding:8px 14px; font-family:'Manrope'; font-weight:800; font-size:12px; cursor:pointer; flex-shrink:0;
+  }
+  .install-banner button.close-btn{
+    background:none; border:none; color:var(--text-faint); font-size:18px; cursor:pointer; padding:4px 6px; flex-shrink:0;
+  }
+  body.banner-open{ padding-top:56px; }
   .toast{
     position:fixed; bottom:100px; left:50%; transform:translateX(-50%) translateY(20px);
     background:var(--bg-elev-2); border:1px solid #263140; color:var(--text);
@@ -182,6 +206,16 @@
 </style>
 </head>
 <body>
+
+<div class="install-banner" id="installBanner">
+  <img src="icon-192.png" alt="">
+  <div class="txt">
+    <div class="t1">Yurish ilovasi</div>
+    <div class="t2">Bosh ekranga o'rnating, tezroq oching</div>
+  </div>
+  <button class="install-btn" id="installBtn">Yuklab olish</button>
+  <button class="close-btn" id="installClose">✕</button>
+</div>
 
 <header class="top">
   <div class="brand">yurish<span>.</span></div>
@@ -729,6 +763,51 @@
       navigator.serviceWorker.register('sw.js').catch(()=>{ /* offline cache not available, app still works online */ });
     });
   }
+
+  // ---------- PWA: custom install banner ----------
+  let deferredPrompt = null;
+  const banner = $('installBanner');
+
+  function isStandalone(){
+    return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+  }
+  function dismissedRecently(){
+    const t = localStorageSafeGet('installDismissedAt');
+    if(!t) return false;
+    return (Date.now() - parseInt(t)) < 1000*60*60*24*7; // 7 days
+  }
+  function localStorageSafeGet(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }
+  function localStorageSafeSet(k,v){ try{ localStorage.setItem(k,v); }catch(e){} }
+
+  window.addEventListener('beforeinstallprompt', (e)=>{
+    e.preventDefault();
+    deferredPrompt = e;
+    if(!isStandalone() && !dismissedRecently()){
+      banner.classList.add('show');
+      document.body.classList.add('banner-open');
+    }
+  });
+
+  $('installBtn').addEventListener('click', async ()=>{
+    if(!deferredPrompt) return;
+    banner.classList.remove('show');
+    document.body.classList.remove('banner-open');
+    deferredPrompt.prompt();
+    await deferredPrompt.userChoice;
+    deferredPrompt = null;
+  });
+
+  $('installClose').addEventListener('click', ()=>{
+    banner.classList.remove('show');
+    document.body.classList.remove('banner-open');
+    localStorageSafeSet('installDismissedAt', String(Date.now()));
+  });
+
+  window.addEventListener('appinstalled', ()=>{
+    banner.classList.remove('show');
+    document.body.classList.remove('banner-open');
+    toast('Ilova o\'rnatildi!');
+  });
 
 })();
 </script>
