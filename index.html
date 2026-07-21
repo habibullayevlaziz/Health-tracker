@@ -55,7 +55,7 @@
   header.top .date{ font-size:13px; color:var(--text-dim); font-weight:600; text-transform:capitalize; }
 
   .install-pill{
-    display:none;
+    display:inline-flex;
     align-items:center; gap:6px;
     background:rgba(76,224,179,0.12);
     border:1px solid var(--run);
@@ -66,7 +66,7 @@
     cursor:pointer;
     white-space:nowrap;
   }
-  .install-pill.visible{ display:inline-flex; }
+  .install-pill.hidden{ display:none; }
   .install-pill:active{ transform:scale(0.97); }
   .install-pill svg{ width:15px; height:15px; }
 
@@ -304,6 +304,14 @@
 </main>
 
 <div class="toast" id="toast"></div>
+
+<div id="installModal" style="display:none; position:fixed; inset:0; z-index:80; background:rgba(0,0,0,0.6); align-items:center; justify-content:center; padding:20px;">
+  <div style="background:var(--bg-elev); border:1px solid #263140; border-radius:20px; padding:22px; max-width:340px; width:100%;">
+    <div style="font-family:'Bebas Neue'; font-size:22px; color:var(--text); margin-bottom:10px;">Ilovani o'rnatish</div>
+    <div id="installModalBody" style="font-size:13px; color:var(--text-dim); line-height:1.7;"></div>
+    <button onclick="document.getElementById('installModal').style.display='none'" style="margin-top:16px; width:100%; background:var(--run); color:#06231A; border:none; border-radius:12px; padding:12px; font-family:'Manrope'; font-weight:800; font-size:14px; cursor:pointer;">Tushunarli</button>
+  </div>
+</div>
 
 <nav class="tabs">
   <button class="tab-btn active" data-view="dashboard">
@@ -764,21 +772,37 @@
   window.addEventListener('beforeinstallprompt', (e)=>{
     e.preventDefault();
     deferredPrompt = e;
-    if(!isStandalone()){
-      installBtn.classList.add('visible');
-    }
   });
 
   installBtn.addEventListener('click', async ()=>{
-    if(!deferredPrompt) return;
-    deferredPrompt.prompt();
-    const choice = await deferredPrompt.userChoice;
-    deferredPrompt = null;
-    installBtn.classList.remove('visible');
+    if(deferredPrompt){
+      deferredPrompt.prompt();
+      await deferredPrompt.userChoice;
+      deferredPrompt = null;
+      return;
+    }
+    // fallback: show manual instructions based on platform
+    const ua = navigator.userAgent;
+    const isIOS = /iPhone|iPad|iPod/.test(ua);
+    const isAndroid = /Android/.test(ua);
+    let html = '';
+    if(isIOS){
+      html = 'Pastdagi <b>Ulashish</b> tugmasini bosing (kvadrat ichida strelka), so\'ng ro\'yxatdan <b>"Bosh ekranga qo\'shish"</b> ni tanlang.';
+    } else if(isAndroid){
+      html = 'Yuqori o\'ng burchakdagi uchta nuqta (⋮) menyusini bosing, so\'ng <b>"Ilovani o\'rnatish"</b> yoki <b>"Bosh ekranga qo\'shish"</b> ni tanlang.';
+    } else {
+      html = 'Brauzer manzil qatorining o\'ng tomonidagi o\'rnatish belgisini bosing, yoki uchta nuqta menyu → <b>"Sahifani ilova sifatida o\'rnatish"</b> ni tanlang.';
+    }
+    $('installModalBody').innerHTML = html;
+    $('installModal').style.display = 'flex';
   });
 
+  if(isStandalone()){
+    installBtn.classList.add('hidden');
+  }
+
   window.addEventListener('appinstalled', ()=>{
-    installBtn.classList.remove('visible');
+    installBtn.classList.add('hidden');
     toast('Ilova o\'rnatildi!');
   });
 
